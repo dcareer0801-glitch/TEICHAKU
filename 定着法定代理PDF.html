@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>代理受領一括印刷システム</title>
+<style>
+    /* ＝＝＝ 画面入力用（印刷時には消える部分） ＝＝＝ */
+    body { font-family: 'Meiryo', sans-serif; background-color: #f4f5f7; margin: 0; padding: 20px; }
+    #ui-panel { padding: 20px; background: #fff; margin-bottom: 20px; border: 1px solid #ccc; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    h2 { margin-top: 0; font-size: 18px; }
+
+    /* ページ切り替えリンクのスタイル */
+    .nav-links { margin-bottom: 15px; font-size: 14px; }
+    .nav-links a { color: #0056b3; text-decoration: none; font-weight: bold; }
+    .nav-links a:hover { text-decoration: underline; }
+    .nav-links span { color: #666; font-weight: bold; margin-left: 15px; }
+
+    .input-group { margin-bottom: 15px; display: flex; gap: 20px; flex-wrap: wrap; }
+    .input-group label { display: block; font-size: 14px; margin-bottom: 5px; }
+    .input-group input { padding: 5px; border: 1px solid #aaa; border-radius: 4px; width: 160px; font-family: inherit; }
+    
+    table.data-table { border-collapse: collapse; width: 100%; background: #fff; margin-bottom: 15px; font-size: 13px; }
+    table.data-table th, table.data-table td { border: 1px solid #ccc; padding: 6px; text-align: center; }
+    table.data-table input { width: 90%; padding: 4px; box-sizing: border-box; }
+    
+    .btn { padding: 8px 16px; background: #0056b3; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+    .btn-add { background: #28a745; }
+    .btn-print { background: #dc3545; font-weight: bold; font-size: 16px; padding: 10px 20px; }
+    .btn-clear { background: #6c757d; } /* データをクリアするボタン用 */
+    .btn:hover { opacity: 0.8; }
+
+    /* ＝＝＝ 印刷用レイアウト ＝＝＝ */
+    #print-area { display: none; }
+
+    @media print {
+        body, html { background-color: white; margin: 0; padding: 0; }
+        #ui-panel { display: none !important; }
+        #print-area { display: block; width: 100%; }
+        
+        @page { size: A4 portrait; margin: 10mm 15mm; }
+        
+        .page {
+            page-break-after: always;
+            position: relative;
+            color: #000;
+            font-family: 'Meiryo', sans-serif;
+            width: 100%;
+            height: 270mm;
+            box-sizing: border-box;
+        }
+        .page:last-child { page-break-after: auto; }
+
+        /* ヘッダー周り */
+        .header-section { width: 100%; position: relative; height: 210px; margin-bottom: 15px; }
+        
+        /* 左上：ロゴ・氏名 */
+        .header-left { position: absolute; left: 0; top: 0; width: 45%; }
+        .logo-img { display: block; height: 50px; width: auto; margin-bottom: 10px; }
+        
+        .user-name-box { margin-top: 50px; border-bottom: 1px solid #000; width: 85%; font-size: 14px; display: flex; justify-content: space-between; padding-bottom: 2px; }
+        
+        /* 右上：日付・事業所情報 */
+        .header-right { position: absolute; right: 0; top: 15px; width: 52%; font-size: 11px; line-height: 1.35; }
+        .print-date { text-align: right; font-size: 12px; margin-bottom: 5px; margin-right: 15px; }
+        .print-date span { display: inline-block; text-align: right; }
+        
+        .info-row { display: flex; margin-bottom: 6px; }
+        .section-label { width: 45px; font-weight: bold; flex-shrink: 0; }
+        .section-content { flex-grow: 1; }
+
+        /* タイトル・説明文 */
+        .doc-title { text-align: center; font-size: 21px; font-weight: bold; margin: 25px 0 15px 0; letter-spacing: 1px; }
+        .doc-desc { font-size: 11px; text-align: center; margin-bottom: 30px; line-height: 1.4; }
+        .doc-ki { text-align: center; font-size: 13px; margin-bottom: 5px; }
+
+        /* 表のレイアウト */
+        .box-table { width: 85%; margin: 0 auto 20px auto; border-collapse: collapse; font-size: 13px; border: 1px solid #000; }
+        .box-table th, .box-table td { height: 35px; vertical-align: middle; }
+        .box-table th { width: 30%; text-align: center; font-weight: normal; border-right: 1px dotted #000; }
+        .box-table td { text-align: center; font-size: 14px; }
+        .box-table tr:first-child td, .box-table tr:first-child th { border-bottom: 1px dotted #000; }
+
+        .detail-table { width: 85%; margin: 0 auto; border-collapse: collapse; font-size: 13px; border: 1px solid #000; }
+        .detail-table th, .detail-table td { height: 35px; vertical-align: middle; border-bottom: 1px solid #000; }
+        .detail-table tr:last-child th, .detail-table tr:last-child td { border-bottom: none; }
+        
+        .detail-table th { width: 50%; text-align: left; font-weight: normal; padding-left: 15px; border-right: 1px dotted #000; }
+        .detail-table td { text-align: right; padding-right: 15px; font-size: 14px; }
+        
+        .nested-row { height: 70px !important; }
+        .nested-row th { vertical-align: middle; border-right: 1px dotted #000; }
+        .nested-row td { padding: 0; }
+        .nested-grid { width: 100%; height: 100%; border-collapse: collapse; }
+        .nested-grid td { border: none; height: 35px; vertical-align: middle; }
+        .nested-grid tr:first-child td { border-bottom: 1px dotted #000; }
+        .nested-grid td:first-child { text-align: left; padding-left: 10px; width: 45%; border-right: 1px dotted #000; }
+        .nested-grid td:last-child { text-align: right; padding-right: 15px; }
+    }
+</style>
+</head>
+<body>
+
+<div id="ui-panel">
+    <div class="nav-links">
+        <span>■ 法定代理受領システム（現在のページ）</span>
+        <a href="請求書PDF.html" style="margin-left: 15px;">請求書発行システムへ →</a>
+    </div>
+
+    <h2>📄 代理受領一括印刷システム</h2>
+    
+    <div style="background: #e9ecef; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
+        <h3 style="margin-top:0; font-size:15px;">共通項目（全員同じ内容）</h3>
+        <div class="input-group">
+            <div><label>右上の発行日</label><input type="date" id="common-issuedate" value="2026-04-15" onchange="saveAllData()"></div>
+            <div><label>サービス提供年月</label><input type="month" id="common-month" value="2026-01" onchange="saveAllData()"></div>
+            <div><label>受領日</label><input type="date" id="common-receipt" value="2026-04-15" onchange="saveAllData()"></div>
+        </div>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin-top:0; font-size:15px;">個別入力項目（複数人入力可能）</h3>
+        <button class="btn btn-clear" onclick="clearAllData()">データを全クリア</button>
+    </div>
+    
+    <table class="data-table" id="data-table">
+        <thead>
+            <tr>
+                <th>利用者氏名</th><th>受給者証番号</th><th>市区町村名</th><th>全体の額(A)（円）</th><th>負担額(B)（円）</th><th>操作</th>
+            </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+    </table>
+    <div style="display: flex; gap: 15px; margin-top: 10px;">
+        <button class="btn btn-add" onclick="addRow()">＋ 行を追加する</button>
+        <button class="btn btn-print" onclick="generateAndPrint()">🖨️ PDF一括出力（印刷）</button>
+    </div>
+</div>
+
+<div id="print-area"></div>
+
+<script>
+    // ページ読み込み時に実行
+    window.onload = function() {
+        loadAllData();
+    };
+
+    function addRow(data = {name:'', num:'', city:'', total:'', burden:''}) {
+        const tbody = document.getElementById('tbody');
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><input type="text" class="i-name" placeholder="氏名" value="${data.name}" oninput="saveAllData()"></td>
+            <td><input type="text" class="i-num" placeholder="0000000000" value="${data.num}" oninput="saveAllData()"></td>
+            <td><input type="text" class="i-city" placeholder="市区町村" value="${data.city}" oninput="saveAllData()"></td>
+            <td><input type="number" class="i-total" placeholder="0" value="${data.total}" oninput="saveAllData()"></td>
+            <td><input type="number" class="i-burden" placeholder="0" value="${data.burden}" oninput="saveAllData()"></td>
+            <td><button class="btn" onclick="removeRow(this)">削除</button></td>
+        `;
+        tbody.appendChild(tr);
+    }
+
+    function removeRow(btn) {
+        btn.closest('tr').remove();
+        saveAllData(); // 削除時も保存
+    }
+    
+    function formatMoney(num) {
+        if(!num || isNaN(num)) return "0";
+        return Number(num).toLocaleString();
+    }
+
+    // 西暦の日付を和暦（令和○年○月○日）に変換する関数
+    function toWarekiFull(dateStr) {
+        if(!dateStr) return "";
+        const date = new Date(dateStr);
+        if(isNaN(date)) return "";
+        
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+        
+        const reiwaYear = year - 2018;
+        const warekiYear = reiwaYear === 1 ? "元" : reiwaYear;
+        
+        return `令和${warekiYear}年${month}月${day}日`;
+    }
+
+    // 西暦の年月を和暦（令和○年○月）に変換する関数
+    function toWarekiMonth(monthStr) {
+        if(!monthStr) return "";
+        const parts = monthStr.split('-');
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10);
+        
+        const reiwaYear = year - 2018;
+        const warekiYear = reiwaYear === 1 ? "元" : reiwaYear;
+        
+        return `令和${warekiYear}年${month}月`;
+    }
+
+    // ＝＝＝ データの自動保存機能 ＝＝＝
+    function saveAllData() {
+        // 共通項目の保存
+        localStorage.setItem('common-issuedate', document.getElementById('common-issuedate').value);
+        localStorage.setItem('common-month', document.getElementById('common-month').value);
+        localStorage.setItem('common-receipt', document.getElementById('common-receipt').value);
+
+        // テーブルデータの保存
+        const rows = document.querySelectorAll('#tbody tr');
+        const dataList = [];
+        rows.forEach(row => {
+            dataList.push({
+                name: row.querySelector('.i-name').value,
+                num: row.querySelector('.i-num').value,
+                city: row.querySelector('.i-city').value,
+                total: row.querySelector('.i-total').value,
+                burden: row.querySelector('.i-burden').value
+            });
+        });
+        localStorage.setItem('table-data', JSON.stringify(dataList));
+    }
+
+    // ＝＝＝ データの復元機能 ＝＝＝
+    function loadAllData() {
+        // 共通項目の復元
+        if(localStorage.getItem('common-issuedate')) document.getElementById('common-issuedate').value = localStorage.getItem('common-issuedate');
+        if(localStorage.getItem('common-month')) document.getElementById('common-month').value = localStorage.getItem('common-month');
+        if(localStorage.getItem('common-receipt')) document.getElementById('common-receipt').value = localStorage.getItem('common-receipt');
+
+        // テーブルデータの復元
+        const tbody = document.getElementById('tbody');
+        tbody.innerHTML = ''; // 一旦クリア
+        
+        const savedData = localStorage.getItem('table-data');
+        if (savedData) {
+            const dataList = JSON.parse(savedData);
+            dataList.forEach(data => addRow(data));
+        }
+        
+        // ご指示通り、最初から15行の入力欄を出すように設定
+        const currentRows = document.querySelectorAll('#tbody tr').length;
+        if (currentRows < 15) {
+            for (let i = currentRows; i < 15; i++) {
+                addRow();
+            }
+        }
+    }
+
+    // ＝＝＝ データを全消去して初期状態に戻す ＝＝＝
+    function clearAllData() {
+        if(confirm('入力されたすべてのデータ（名前や金額など）をクリアします。よろしいですか？')) {
+            localStorage.clear();
+            loadAllData();
+        }
+    }
+
+    // ＝＝＝ 印刷機能 ＝＝＝
+    function generateAndPrint() {
+        const printArea = document.getElementById('print-area');
+        printArea.innerHTML = ''; 
+        
+        const issuedateVal = document.getElementById('common-issuedate').value;
+        let y = "", m = "", d = "";
+        if(issuedateVal) {
+            const dateObj = new Date(issuedateVal);
+            dateObj.getFullYear();
+            m = dateObj.getMonth() + 1;
+            d = dateObj.getDate();
+        }
+        
+        const commonMonth = toWarekiMonth(document.getElementById('common-month').value);
+        const commonReceipt = toWarekiFull(document.getElementById('common-receipt').value);
+
+        const rows = document.querySelectorAll('#tbody tr');
+        let printedCount = 0;
+
+        rows.forEach(row => {
+            const name = row.querySelector('.i-name').value.trim();
+            
+            if (name === '') {
+                return;
+            }
+
+            const num = row.querySelector('.i-num').value;
+            const city = row.querySelector('.i-city').value;
+            const total = row.querySelector('.i-total').value;
+            const burden = row.querySelector('.i-burden').value;
+            const diff = Number(total) - Number(burden);
+
+            printedCount++;
+
+            const pageDiv = document.createElement('div');
+            pageDiv.className = 'page';
+            pageDiv.innerHTML = `
+                <div class="header-section">
+                    <div class="header-left">
+                        <img src="image_1.png" alt="logo" class="logo-img">
+                        <div class="user-name-box">
+                            <span>${name}</span><span>様</span>
+                        </div>
+                    </div>
+                    <div class="header-right">
+                        <div class="print-date">
+                            <span>${y}年</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span>${m}月</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span>${d}日</span>
+                        </div>
+                        
+                        <div class="info-row">
+                            <span class="section-label">事業者</span>
+                            <span class="section-content">
+                                株式会社ジョイナス<br>
+                                〒603-8408<br>
+                                京都市北区大宮北椿原町45 高山ビル2階<br>
+                                代表取締役　高山　愛子
+                            </span>
+                        </div>
+                        <div class="info-row">
+                            <span class="section-label">事業所</span>
+                            <span class="section-content">
+                                ディーキャリアITエキスパート京橋オフィス<br>
+                                〒534-0024<br>
+                                大阪府大阪市都島区東野田町4-1-17<br>
+                                日本ロジックス東野田ビル7階
+                            </span>
+                        </div>
+                        <div class="info-row">
+                            <span class="section-label">連絡先</span>
+                            <span class="section-content">
+                                TEL:06-6881-0777 / FAX:06-6881-0771<br>
+                                [担当]辻本　崇
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="doc-title">法定代理受領のお知らせ</div>
+                <div class="doc-desc">下記のとおり、就労定着支援サービスに要した費用を代理受領しましたので、お知らせします。</div>
+                
+                <div class="doc-ki">記</div>
+
+                <table class="box-table">
+                    <tr><th>受給者証番号</th><td style="font-weight: bold;">${num}</td></tr>
+                    <tr><th>利用者氏名</th><td style="font-weight: bold; font-size: 15px;">${name}</td></tr>
+                </table>
+
+                <table class="detail-table">
+                    <tr><th>サービス提供年月</th><td style="text-align:center;">${commonMonth}</td></tr>
+                    <tr><th>市区町村名</th><td style="text-align:center;">${city}</td></tr>
+                    <tr><th>受領日</th><td style="text-align:center;">${commonReceipt}</td></tr>
+                    <tr><th>代理受領金額（Ａ）－（Ｂ）</th><td style="font-weight: bold;">金 ${formatMoney(diff)}円</td></tr>
+                    <tr class="nested-row">
+                        <th style="text-align:center;">内訳</th>
+                        <td>
+                            <table class="nested-grid">
+                                <tr>
+                                    <td>サービスに要した<br>費用の全体の額（Ａ）</td>
+                                    <td>金 ${formatMoney(total)}円</td>
+                                </tr>
+                                <tr>
+                                    <td>利用者負担額（Ｂ）</td>
+                                    <td>金 ${formatMoney(burden)}円</td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            `;
+            printArea.appendChild(pageDiv);
+        });
+
+        if (printedCount === 0) {
+            alert('印刷対象となる利用者氏名が1件も入力されていません。');
+            return;
+        }
+
+        setTimeout(() => { window.print(); }, 500);
+    }
+</script>
+</body>
+</html>

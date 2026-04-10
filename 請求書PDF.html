@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>請求書発行システム</title>
+<style>
+    /* ＝＝＝ 入力画面用スタイル ＝＝＝ */
+    body { font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; color: #333; }
+    #ui-panel { max-width: 1200px; margin: 0 auto; background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .nav-links { border-bottom: 2px solid #0056b3; padding-bottom: 10px; margin-bottom: 20px; }
+    .nav-links a { color: #0056b3; text-decoration: none; font-weight: bold; font-size: 14px; }
+    .nav-links span { margin-left: 15px; color: #666; font-size: 14px; }
+    
+    .input-section { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
+    .input-group label { display: block; font-size: 12px; font-weight: bold; margin-bottom: 4px; color: #555; }
+    .input-group input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; background-color: #fff; }
+
+    .table-container { overflow-x: auto; }
+    table.entry-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    table.entry-table th { background: #0056b3; color: white; padding: 10px; border: 1px solid #ddd; }
+    table.entry-table td { border: 1px solid #ddd; padding: 5px; background-color: #fff; }
+    table.entry-table input { width: 100%; border: none; padding: 5px; box-sizing: border-box; outline: none; background-color: #fff; }
+    table.entry-table input:focus { background: #eef6ff; }
+
+    .btn-area { margin-top: 20px; display: flex; gap: 10px; }
+    .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+    .btn-print { background: #e63946; color: white; font-size: 16px; }
+    .btn-add { background: #2a9d8f; color: white; }
+    .btn-clear { background: #6c757d; color: white; }
+    .btn:hover { opacity: 0.8; }
+
+    /* ＝＝＝ 印刷用スタイル ＝＝＝ */
+    #print-area { display: none; }
+    @media print {
+        #ui-panel { display: none !important; }
+        #print-area { display: block; width: 100%; background: white; }
+        @page { size: A4; margin: 0; }
+        .page { width: 210mm; height: 296mm; padding: 12mm 15mm; box-sizing: border-box; page-break-after: always; position: relative; font-family: "MS Mincho", serif; color: #000; }
+
+        .title-wrap { display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+        .double-line { flex-grow: 1; height: 6px; border-top: 3px solid #000; border-bottom: 1px solid #000; margin: 0 10px; }
+        .title-box { border: 1px solid #ccc; padding: 5px 25px; font-size: 22px; font-weight: bold; letter-spacing: 5px; background: #eee; }
+
+        .header-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5px; }
+        .dest-info { width: 50%; font-size: 11pt; padding-top: 10px; }
+        .dest-address { margin-bottom: 15px; }
+        .dest-name { font-size: 14pt; margin-left: 10px; border-bottom: none; }
+        
+        .date-number-box { border: 2px solid #b4c7e7; padding: 5px 15px; min-width: 220px; margin-bottom: 5px; font-size: 10.5pt; }
+        .date-row { display: flex; justify-content: space-between; }
+        .office-info { text-align: left; font-size: 9pt; line-height: 1.3; }
+        .office-name { font-weight: bold; font-size: 10pt; }
+
+        .intro-text { font-size: 10.5pt; margin: 15px 0 10px 0; text-align: center; }
+
+        .billing-box { border: 2px solid #b4c7e7; display: flex; align-items: center; margin-bottom: 5px; width: 320px; }
+        .billing-label { background: #f0f4fa; padding: 8px; font-size: 14pt; font-weight: bold; border-right: 2px solid #b4c7e7; width: 140px; text-align: center; }
+        .billing-value { padding: 8px 20px; font-size: 18pt; font-weight: bold; flex-grow: 1; text-align: right; }
+        
+        .limit-box { border: 2px solid #b4c7e7; display: flex; margin-bottom: 20px; width: 320px; font-size: 9pt; }
+        .limit-label { width: 180px; border-right: 2px solid #b4c7e7; padding: 2px 5px; }
+        .limit-value { flex-grow: 1; text-align: right; padding: 2px 10px; }
+
+        .main-table { width: 100%; border-collapse: collapse; border: 1.5px solid #000; margin-bottom: 10px; font-size: 10pt; }
+        .main-table th { border: 1px solid #000; padding: 5px; background: #fff; font-weight: bold; text-align: center; }
+        .main-table td { border: 1px solid #000; padding: 3px 8px; height: 24px; }
+        .main-table .purple-row { background-color: #e5e5ff; } 
+        
+        .col-side { background: #fff; width: 80px; text-align: center; font-weight: bold; }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .indent { padding-left: 25px; }
+
+        .footer-wrap { display: flex; justify-content: space-between; align-items: flex-start; }
+        .bank-box { border: 1.5px solid #000; width: 360px; padding: 8px; font-size: 9pt; line-height: 1.6; }
+        .bank-title { font-weight: bold; text-decoration: underline; margin-bottom: 5px; display: block; }
+        
+        .sub-summary-table { width: 440px; border-collapse: collapse; margin-bottom: 10px; font-size: 10pt; }
+        .sub-summary-table td { border: 1px solid #000; padding: 4px 10px; }
+        .sub-summary-table .label-cell { width: 280px; }
+        
+        .final-billing-box { border: 4px solid #000; display: flex; align-items: center; width: 440px; height: 45px; margin-bottom: 10px; }
+        .final-label { background: #fff; font-size: 14pt; font-weight: bold; border-right: 2px solid #000; width: 140px; text-align: center; }
+        .final-value { font-size: 18pt; font-weight: bold; flex-grow: 1; text-align: right; padding-right: 15px; }
+
+        .deadline-box { border: 1.5px solid #000; border-radius: 20px; padding: 5px 30px; display: inline-block; float: right; font-size: 11pt; font-weight: bold; }
+
+        .receipt-area { border: 2px solid #000; padding: 30px; height: 100%; box-sizing: border-box; }
+        .r-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 40px; }
+        .r-title { font-size: 28pt; font-weight: bold; border: 1px solid #ccc; padding: 5px 40px; background: #eee; letter-spacing: 10px; }
+        .r-name { font-size: 18pt; font-weight: bold; border-bottom: 2px solid #000; min-width: 300px; }
+        .r-amount-wrap { text-align: center; margin: 50px 0; }
+        .r-amount { font-size: 32pt; font-weight: bold; border-bottom: 3px double #000; display: inline-block; padding: 0 50px; }
+        .r-office { position: absolute; bottom: 50px; right: 50px; text-align: left; font-size: 10pt; line-height: 1.5; }
+    }
+</style>
+</head>
+<body>
+
+<div id="ui-panel">
+    <div class="nav-links">
+        <a href="定着法定代理PDF.html">← 定着法定代理PDF.html へ移動</a>
+        <span>■ 請求書発行システム（現在の画面）</span>
+    </div>
+    <h2>請求書・領収書 一括作成</h2>
+    
+    <div class="input-section">
+        <div class="input-group"><label>発行日</label><input type="date" id="issuedate" value="2026-04-15" onchange="save()"></div>
+        <div class="input-group"><label>サービス提供年月</label><input type="month" id="svc_month" value="2026-01" onchange="save()"></div>
+        <div class="input-group"><label>振込期限</label><input type="date" id="deadline" value="2026-04-30" onchange="save()"></div>
+    </div>
+
+    <div class="table-container">
+        <table class="entry-table" id="entry-table">
+            <thead>
+                <tr>
+                    <th width="50">No</th><th width="120">受給者証番号</th><th>氏名</th><th>住所</th><th width="100">受領額(②)</th><th width="100">上限月額(①)</th><th width="100">総費用額</th><th width="100">自治体負担</th>
+                </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+        </table>
+    </div>
+
+    <div class="btn-area">
+        <button class="btn btn-add" onclick="addRow()">＋ 行を追加</button>
+        <button class="btn btn-clear" onclick="clearData()">全クリア</button>
+        <button class="btn btn-print" onclick="window.print()">🖨️ 印刷 (PDF出力)</button>
+    </div>
+</div>
+
+<div id="print-area"></div>
+
+<script>
+    window.onload = function() { load(); };
+
+    function addRow(data = {}) {
+        const tbody = document.getElementById('tbody');
+        const count = tbody.rows.length + 1;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td align="center">${count}</td>
+            <td><input type="text" class="i-no" value="${data.no || ''}" oninput="updatePrint()"></td>
+            <td><input type="text" class="i-name" value="${data.name || ''}" oninput="updatePrint()"></td>
+            <td><input type="text" class="i-address" value="${data.address || ''}" oninput="updatePrint()"></td>
+            <td><input type="number" class="i-burden" value="${data.burden || ''}" oninput="updatePrint()"></td>
+            <td><input type="number" class="i-limit" value="${data.limit || ''}" oninput="updatePrint()"></td>
+            <td><input type="number" class="i-total" value="${data.total || ''}" oninput="updatePrint()"></td>
+            <td><input type="number" class="i-gov" value="${data.gov || ''}" oninput="updatePrint()"></td>
+        `;
+        tbody.appendChild(tr);
+        updatePrint();
+        save();
+    }
+
+    function updatePrint() {
+        const area = document.getElementById('print-area');
+        area.innerHTML = '';
+        
+        const issueDateVal = document.getElementById('issuedate').value;
+        const svcMonthVal = document.getElementById('svc_month').value;
+        const deadlineVal = document.getElementById('deadline').value;
+        
+        const dateObj = new Date(issueDateVal);
+        const warekiYear = dateObj.getFullYear() - 2018;
+        
+        const svcDate = new Date(svcMonthVal);
+        const svcWareki = `令和${svcDate.getFullYear()-2018}年${svcDate.getMonth()+1}月`;
+
+        const deadObj = new Date(deadlineVal);
+        const deadStr = `令和${deadObj.getFullYear()-2018}年${deadObj.getMonth()+1}月${deadObj.getDate()}日`;
+
+        document.querySelectorAll('#tbody tr').forEach(r => {
+            const name = r.querySelector('.i-name').value;
+            if(!name) return;
+            
+            const no = r.querySelector('.i-no').value;
+            const addr = r.querySelector('.i-address').value;
+            const burden = r.querySelector('.i-burden').value ? Number(r.querySelector('.i-burden').value).toLocaleString() : "";
+            const limit = r.querySelector('.i-limit').value ? Number(r.querySelector('.i-limit').value).toLocaleString() : "";
+            const total = r.querySelector('.i-total').value ? Number(r.querySelector('.i-total').value).toLocaleString() : "";
+            const gov = r.querySelector('.i-gov').value ? Number(r.querySelector('.i-gov').value).toLocaleString() : "";
+
+            const page1 = document.createElement('div');
+            page1.className = 'page';
+            page1.innerHTML = `
+                <div class="title-wrap"><div class="double-line"></div><div class="title-box">請求書</div><div class="double-line"></div></div>
+                <div class="header-top">
+                    <div class="dest-info"><div class="dest-address">${addr}</div><div class="dest-name">${name}　　様</div></div>
+                    <div>
+                        <div class="date-number-box">
+                            <div class="date-row"><span>日付</span><span>令和 ${warekiYear}年 ${dateObj.getMonth()+1}月 ${dateObj.getDate()}日</span></div>
+                            <div class="date-row"><span>番号</span><span>${no}</span></div>
+                        </div>
+                        <div class="office-info">
+                            <div class="office-name">ディーキャリアITエキスパート京橋オフィス</div>
+                            〒534-0024<br>大阪府大阪市都島区東野田町4-1-17<br>日本ロジックス東野田ビル7階<br>
+                            TEL:06-6881-0777 / FAX:06-6881-0771<br>[担当]辻本　崇
+                        </div>
+                    </div>
+                </div>
+                <div class="intro-text">下記の通り ${svcWareki}ご利用分のご請求を申し上げます</div>
+                <div class="billing-box"><div class="billing-label">ご請求金額</div><div class="billing-value">¥${burden}</div></div>
+                <div class="limit-box"><div class="limit-label">利用者負担上限月額 ①</div><div class="limit-value">¥${limit}</div></div>
+                
+                <table class="main-table">
+                    <tr><th colspan="2">サービス内容</th><th>単位数</th><th>日数</th><th>サービス単位数</th></tr>
+                    <tr class="purple-row"><td rowspan="5" class="col-side">給付費<br>明細欄</td><td>就労定着支援</td><td class="text-center">2768</td><td class="text-center">1</td><td class="text-right">2,768</td></tr>
+                    <tr><td>就労定着処遇改善加算Ⅰ</td><td class="text-center">297</td><td class="text-center">1</td><td class="text-right">297</td></tr>
+                    <tr class="purple-row"><td>就労定着職場適応研修終了加算</td><td class="text-center">120</td><td class="text-center">1</td><td class="text-right">120</td></tr>
+                    <tr><td></td><td></td><td></td><td></td></tr>
+                    <tr class="purple-row"><td>合計</td><td></td><td></td><td class="text-right">3,185</td></tr>
+                    <tr><td rowspan="5" class="col-side">請求額<br>集計欄</td><td>単位数単価</td><td></td><td></td><td class="text-right">¥10.96</td></tr>
+                    <tr class="purple-row"><td class="indent">総費用額</td><td></td><td></td><td class="text-right">¥${total}</td></tr>
+                    <tr><td class="indent">∟１割相当額(利用者負担額 ②)</td><td></td><td></td><td class="text-right">¥${burden}</td></tr>
+                    <tr class="purple-row"><td>上限月額調整(①②の内少ない数)</td><td></td><td></td><td class="text-right">¥${burden}</td></tr>
+                    <tr><td>決定利用者負担</td><td></td><td></td><td class="text-right">¥${burden}</td></tr>
+                    <tr class="purple-row"><td></td><td>給付費地方自治体負担分</td><td></td><td></td><td class="text-right">¥${gov}</td></tr>
+                    <tr><td class="col-side">その他<br>費用一覧</td><td>小計</td><td></td><td></td><td class="text-right">¥0</td></tr>
+                </table>
+
+                <div class="footer-wrap">
+                    <div class="bank-box">
+                        <span class="bank-title">お振込み先</span>
+                        ゆうちょ銀行　４０８支店<br>口座：（普通）7248191<br>
+                        口座名義：ｶ)ｼﾞｮｲﾅｽﾃﾞｨｰｷｬﾘｱｱｲﾃｨｴｷｽﾊﾟｰﾄｷョｳﾊﾞｼｵﾌｨｽ<br>
+                        振込み手数料は実費にてご負担お願い致します。
+                    </div>
+                    <div>
+                        <table class="sub-summary-table">
+                            <tr><td class="label-cell">決定利用者負担額</td><td class="text-right">¥${burden}</td></tr>
+                            <tr><td class="label-cell">その他費用</td><td class="text-right">¥0</td></tr>
+                        </table>
+                        <div class="final-billing-box"><div class="final-label">請求額</div><div class="final-value">¥${burden}</div></div>
+                        <div class="deadline-box">${deadStr} までにお振込みお願い致します。</div>
+                    </div>
+                </div>
+            `;
+            area.appendChild(page1);
+
+            const page2 = document.createElement('div');
+            page2.className = 'page';
+            page2.innerHTML = `
+                <div class="receipt-area">
+                    <div class="r-header"><div class="r-name">${name}　　様</div><div class="r-title">領収書</div></div>
+                    <div class="intro-text" style="font-size:14pt; margin-top:30px;">上記金額を正に受領致しました。</div>
+                    <div class="text-center" style="font-size:12pt; margin-bottom:10px;">${svcWareki}分</div>
+                    <div class="r-amount-wrap"><div class="r-amount">領収金額 ¥${burden}-</div></div>
+                    <div class="r-office">
+                        令和　　年　　月　　日<br><br>
+                        事業者　株式会社ジョイナス<br>〒603-8408 京都市北区大宮北椿原町45 高山ビル2階<br>代表取締役 高山 愛子<br><br>
+                        <b>事業所　ディーキャリアITエキスパート京橋オフィス</b><br>
+                        〒534-0024 大阪府大阪市都島区東野田町4-1-17<br>日本ロジックス東野田ビル7階<br>
+                        TEL:06-6881-0777 / FAX:06-6881-0771<br>[担当]辻本　崇
+                    </div>
+                </div>
+            `;
+            area.appendChild(page2);
+        });
+    }
+
+    function save() {
+        const data = [];
+        document.querySelectorAll('#tbody tr').forEach(r => {
+            data.push({
+                no: r.querySelector('.i-no').value,
+                name: r.querySelector('.i-name').value,
+                address: r.querySelector('.i-address').value,
+                burden: r.querySelector('.i-burden').value,
+                limit: r.querySelector('.i-limit').value,
+                total: r.querySelector('.i-total').value,
+                gov: r.querySelector('.i-gov').value
+            });
+        });
+        localStorage.setItem('inv_data', JSON.stringify(data));
+        localStorage.setItem('inv_dates', JSON.stringify({
+            issue: document.getElementById('issuedate').value,
+            month: document.getElementById('svc_month').value,
+            dead: document.getElementById('deadline').value
+        }));
+    }
+
+    function load() {
+        const dates = JSON.parse(localStorage.getItem('inv_dates') || '{}');
+        if(dates.issue) document.getElementById('issuedate').value = dates.issue;
+        if(dates.month) document.getElementById('svc_month').value = dates.month;
+        if(dates.dead) document.getElementById('deadline').value = dates.dead;
+
+        const data = JSON.parse(localStorage.getItem('inv_data') || '[]');
+        const tbody = document.getElementById('tbody');
+        tbody.innerHTML = '';
+        data.forEach(d => addRow(d));
+        while(tbody.rows.length < 15) { addRow(); }
+    }
+
+    function clearData() {
+        if(confirm('入力を削除しますか？')) {
+            localStorage.removeItem('inv_data');
+            load();
+        }
+    }
+</script>
+</body>
+</html>
