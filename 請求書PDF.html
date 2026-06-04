@@ -133,19 +133,25 @@
 <script>
     window.onload = function() { load(); };
 
+    // テーブル内の入力イベント共通処理
+    function handleInput() {
+        updatePrint();
+        save();
+    }
+
     function addRow(data = {}) {
         const tbody = document.getElementById('tbody');
         const count = tbody.rows.length + 1;
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td align="center">${count}</td>
-            <td><input type="text" class="i-no" value="${data.no || ''}" oninput="updatePrint()"></td>
-            <td><input type="text" class="i-name" value="${data.name || ''}" oninput="updatePrint()"></td>
-            <td><input type="text" class="i-address" value="${data.address || ''}" oninput="updatePrint()"></td>
-            <td><input type="number" class="i-burden" value="${data.burden || ''}" oninput="updatePrint()"></td>
-            <td><input type="number" class="i-limit" value="${data.limit || ''}" oninput="updatePrint()"></td>
-            <td><input type="number" class="i-total" value="${data.total || ''}" oninput="updatePrint()"></td>
-            <td><input type="number" class="i-gov" value="${data.gov || ''}" oninput="updatePrint()"></td>
+            <td><input type="text" class="i-no" value="${data.no || ''}" oninput="handleInput()"></td>
+            <td><input type="text" class="i-name" value="${data.name || ''}" oninput="handleInput()"></td>
+            <td><input type="text" class="i-address" value="${data.address || ''}" oninput="handleInput()"></td>
+            <td><input type="number" class="i-burden" value="${data.burden || ''}" oninput="handleInput()"></td>
+            <td><input type="number" class="i-limit" value="${data.limit || ''}" oninput="handleInput()"></td>
+            <td><input type="number" class="i-total" value="${data.total || ''}" oninput="handleInput()"></td>
+            <td><input type="number" class="i-gov" value="${data.gov || ''}" oninput="handleInput()"></td>
         `;
         tbody.appendChild(tr);
         updatePrint();
@@ -160,6 +166,8 @@
         const svcMonthVal = document.getElementById('svc_month').value;
         const deadlineVal = document.getElementById('deadline').value;
         
+        if (!issueDateVal || !svcMonthVal || !deadlineVal) return;
+
         const dateObj = new Date(issueDateVal);
         const warekiYear = dateObj.getFullYear() - 2018;
         
@@ -222,7 +230,7 @@
                     <div class="bank-box">
                         <span class="bank-title">お振込み先</span>
                         ゆうちょ銀行　４０８支店<br>口座：（普通）7248191<br>
-                        口座名義：ｶ)ｼﾞｮｲﾅｽﾃﾞｨｰｷｬﾘｱｱｲﾃｨｴｷｽﾊﾟｰﾄｷョｳﾊﾞｼｵﾌｨｽ<br>
+                        口座名義：ｶ)ｼﾞｮｲナスﾃﾞｨｰｷｬﾘｱｱｲﾃｨｴｷｽﾊﾟｰﾄｷョｳﾊﾞｼｵﾌｨｽ<br>
                         振込み手数料は実費にてご負担お願い致します。
                     </div>
                     <div>
