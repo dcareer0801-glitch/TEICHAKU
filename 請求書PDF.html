@@ -2,202 +2,323 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>請求書発行システム</title>
 <style>
-    /* ＝＝＝ 入力画面用スタイル ＝＝＝ */
-    body { font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; color: #333; }
-    #ui-panel { max-width: 1200px; margin: 0 auto; background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-    .nav-links { border-bottom: 2px solid #0056b3; padding-bottom: 10px; margin-bottom: 20px; }
+    /* ＝＝＝ 画面レイアウト（左：入力 / 右：プレビュー） ＝＝＝ */
+    * { box-sizing: border-box; }
+    body { font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif; background-color: #f0f2f5; margin: 0; color: #333; }
+    #app { display: flex; gap: 14px; height: 100vh; padding: 12px; }
+    #ui-panel { flex: 0 0 46%; min-width: 380px; overflow: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    #preview-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; background: #566070; border-radius: 8px; overflow: hidden; }
+    .pv-bar { display: flex; align-items: center; gap: 12px; padding: 8px 14px; background: #3f4857; color: #fff; font-size: 13px; }
+    .pv-bar .hint { flex: 1; opacity: 0.85; }
+    .pv-bar select { padding: 3px 6px; }
+    #pv-scroll { flex: 1; overflow: auto; padding: 16px; }
+    #empty-msg { color: #dfe5ee; text-align: center; margin-top: 80px; font-size: 14px; }
+
+    .nav-links { border-bottom: 2px solid #0056b3; padding-bottom: 10px; margin-bottom: 14px; }
     .nav-links a { color: #0056b3; text-decoration: none; font-weight: bold; font-size: 14px; }
     .nav-links span { margin-left: 15px; color: #666; font-size: 14px; }
-    
-    .input-section { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
+    h2 { margin: 0 0 12px; font-size: 18px; }
+
+    .input-section { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; background: #f8f9fa; padding: 12px; border-radius: 6px; margin-bottom: 16px; }
     .input-group label { display: block; font-size: 12px; font-weight: bold; margin-bottom: 4px; color: #555; }
-    .input-group input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; background-color: #fff; }
+    .input-group input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; background-color: #fff; }
 
     .table-container { overflow-x: auto; }
     table.entry-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    table.entry-table th { background: #0056b3; color: white; padding: 10px; border: 1px solid #ddd; }
-    table.entry-table td { border: 1px solid #ddd; padding: 5px; background-color: #fff; }
-    table.entry-table input { width: 100%; border: none; padding: 5px; box-sizing: border-box; outline: none; background-color: #fff; }
+    table.entry-table th { background: #0056b3; color: white; padding: 8px 6px; border: 1px solid #ddd; white-space: nowrap; }
+    table.entry-table td { border: 1px solid #ddd; padding: 2px; background-color: #fff; }
+    table.entry-table td.n { text-align: center; width: 30px; }
+    table.entry-table input { width: 100%; border: none; padding: 6px 5px; outline: none; background-color: #fff; }
+    table.entry-table input.i-no { min-width: 100px; }
+    table.entry-table input.i-name { min-width: 90px; }
+    table.entry-table input.i-address { min-width: 160px; }
+    table.entry-table input[type=number] { min-width: 80px; }
     table.entry-table input:focus { background: #eef6ff; }
+    table.entry-table tr.active td { background: #fff8d6; }
 
-    .btn-area { margin-top: 20px; display: flex; gap: 10px; }
-    .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-    .btn-print { background: #e63946; color: white; font-size: 16px; }
+    .btn-area { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; }
+    .btn { padding: 10px 18px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+    .btn-print { background: #e63946; color: white; font-size: 15px; }
     .btn-add { background: #2a9d8f; color: white; }
     .btn-clear { background: #6c757d; color: white; }
     .btn:hover { opacity: 0.8; }
 
-    /* ＝＝＝ 印刷用スタイル ＝＝＝ */
-    #print-area { display: none; }
+    /* プレビュー上の編集可能箇所 */
+    .ed { display: inline-block; min-width: 1.5em; border-radius: 2px; outline: none; cursor: text; background: rgba(255, 213, 79, 0.22); }
+    .ed:hover { background: rgba(255, 213, 79, 0.5); }
+    .ed:focus { background: #fff3b0; box-shadow: 0 0 0 1px #e0a800; }
+
+    .save-status { font-size: 12px; color: #2a7d4f; }
+    .save-status.ng { color: #c0392b; font-weight: bold; }
+
+    /* ＝＝＝ 帳票スタイル（画面・印刷共通） ＝＝＝ */
+    #print-area { transform-origin: top left; }
+    .page { width: 210mm; height: 296mm; padding: 12mm 15mm; background: #fff; box-shadow: 0 3px 14px rgba(0,0,0,0.35); margin: 0 auto 18px; page-break-after: always; position: relative; font-family: "MS Mincho", "Hiragino Mincho ProN", serif; color: #000; overflow: hidden; }
+
+    .title-wrap { display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+    .double-line { flex-grow: 1; height: 6px; border-top: 3px solid #000; border-bottom: 1px solid #000; margin: 0 10px; }
+    .title-box { border: 1px solid #ccc; padding: 5px 25px; font-size: 22px; font-weight: bold; letter-spacing: 5px; background: #eee; }
+
+    .header-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5px; }
+    .dest-info { width: 50%; font-size: 11pt; padding-top: 10px; }
+    .dest-address { margin-bottom: 15px; }
+    .dest-name { font-size: 14pt; margin-left: 10px; }
+
+    .date-number-box { border: 2px solid #b4c7e7; padding: 5px 15px; min-width: 220px; margin-bottom: 5px; font-size: 10.5pt; }
+    .date-row { display: flex; justify-content: space-between; }
+    .office-info { text-align: left; font-size: 9pt; line-height: 1.3; }
+    .office-name { font-weight: bold; font-size: 10pt; }
+
+    .intro-text { font-size: 10.5pt; margin: 15px 0 10px 0; text-align: center; }
+
+    .billing-box { border: 2px solid #b4c7e7; display: flex; align-items: center; margin-bottom: 5px; width: 320px; }
+    .billing-label { background: #f0f4fa; padding: 8px; font-size: 14pt; font-weight: bold; border-right: 2px solid #b4c7e7; width: 140px; text-align: center; }
+    .billing-value { padding: 8px 20px; font-size: 18pt; font-weight: bold; flex-grow: 1; text-align: right; }
+
+    .limit-box { border: 2px solid #b4c7e7; display: flex; margin-bottom: 20px; width: 320px; font-size: 9pt; }
+    .limit-label { width: 180px; border-right: 2px solid #b4c7e7; padding: 2px 5px; }
+    .limit-value { flex-grow: 1; text-align: right; padding: 2px 10px; }
+
+    .main-table { width: 100%; border-collapse: collapse; border: 1.5px solid #000; margin-bottom: 10px; font-size: 10pt; }
+    .main-table th { border: 1px solid #000; padding: 5px; background: #fff; font-weight: bold; text-align: center; }
+    .main-table td { border: 1px solid #000; padding: 3px 8px; height: 24px; }
+    .main-table .purple-row { background-color: #e5e5ff; }
+
+    .col-side { background: #fff; width: 80px; text-align: center; font-weight: bold; }
+    .text-right { text-align: right; }
+    .text-center { text-align: center; }
+    .indent { padding-left: 25px; }
+
+    .footer-wrap { display: flex; justify-content: space-between; align-items: flex-start; }
+    .bank-box { border: 1.5px solid #000; width: 360px; padding: 8px; font-size: 9pt; line-height: 1.6; }
+    .bank-title { font-weight: bold; text-decoration: underline; margin-bottom: 5px; display: block; }
+
+    .sub-summary-table { width: 440px; border-collapse: collapse; margin-bottom: 10px; font-size: 10pt; }
+    .sub-summary-table td { border: 1px solid #000; padding: 4px 10px; }
+    .sub-summary-table .label-cell { width: 280px; }
+
+    .final-billing-box { border: 4px solid #000; display: flex; align-items: center; width: 440px; height: 45px; margin-bottom: 10px; }
+    .final-label { background: #fff; font-size: 14pt; font-weight: bold; border-right: 2px solid #000; width: 140px; text-align: center; }
+    .final-value { font-size: 18pt; font-weight: bold; flex-grow: 1; text-align: right; padding-right: 15px; }
+
+    .deadline-box { border: 1.5px solid #000; border-radius: 20px; padding: 5px 30px; display: inline-block; float: right; font-size: 11pt; font-weight: bold; }
+
+    .receipt-area { border: 2px solid #000; padding: 30px; height: 100%; }
+    .r-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 40px; }
+    .r-title { font-size: 28pt; font-weight: bold; border: 1px solid #ccc; padding: 5px 40px; background: #eee; letter-spacing: 10px; }
+    .r-name { font-size: 18pt; font-weight: bold; border-bottom: 2px solid #000; min-width: 300px; }
+    .r-amount-wrap { text-align: center; margin: 50px 0; }
+    .r-amount { font-size: 32pt; font-weight: bold; border-bottom: 3px double #000; display: inline-block; padding: 0 50px; }
+    .r-office { position: absolute; bottom: 50px; right: 50px; text-align: left; font-size: 10pt; line-height: 1.5; }
+
+    /* ＝＝＝ 印刷時：プレビューだけを等倍で出力 ＝＝＝ */
     @media print {
-        #ui-panel { display: none !important; }
-        #print-area { display: block; width: 100%; background: white; }
         @page { size: A4; margin: 0; }
-        .page { width: 210mm; height: 296mm; padding: 12mm 15mm; box-sizing: border-box; page-break-after: always; position: relative; font-family: "MS Mincho", serif; color: #000; }
-
-        .title-wrap { display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
-        .double-line { flex-grow: 1; height: 6px; border-top: 3px solid #000; border-bottom: 1px solid #000; margin: 0 10px; }
-        .title-box { border: 1px solid #ccc; padding: 5px 25px; font-size: 22px; font-weight: bold; letter-spacing: 5px; background: #eee; }
-
-        .header-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5px; }
-        .dest-info { width: 50%; font-size: 11pt; padding-top: 10px; }
-        .dest-address { margin-bottom: 15px; }
-        .dest-name { font-size: 14pt; margin-left: 10px; border-bottom: none; }
-        
-        .date-number-box { border: 2px solid #b4c7e7; padding: 5px 15px; min-width: 220px; margin-bottom: 5px; font-size: 10.5pt; }
-        .date-row { display: flex; justify-content: space-between; }
-        .office-info { text-align: left; font-size: 9pt; line-height: 1.3; }
-        .office-name { font-weight: bold; font-size: 10pt; }
-
-        .intro-text { font-size: 10.5pt; margin: 15px 0 10px 0; text-align: center; }
-
-        .billing-box { border: 2px solid #b4c7e7; display: flex; align-items: center; margin-bottom: 5px; width: 320px; }
-        .billing-label { background: #f0f4fa; padding: 8px; font-size: 14pt; font-weight: bold; border-right: 2px solid #b4c7e7; width: 140px; text-align: center; }
-        .billing-value { padding: 8px 20px; font-size: 18pt; font-weight: bold; flex-grow: 1; text-align: right; }
-        
-        .limit-box { border: 2px solid #b4c7e7; display: flex; margin-bottom: 20px; width: 320px; font-size: 9pt; }
-        .limit-label { width: 180px; border-right: 2px solid #b4c7e7; padding: 2px 5px; }
-        .limit-value { flex-grow: 1; text-align: right; padding: 2px 10px; }
-
-        .main-table { width: 100%; border-collapse: collapse; border: 1.5px solid #000; margin-bottom: 10px; font-size: 10pt; }
-        .main-table th { border: 1px solid #000; padding: 5px; background: #fff; font-weight: bold; text-align: center; }
-        .main-table td { border: 1px solid #000; padding: 3px 8px; height: 24px; }
-        .main-table .purple-row { background-color: #e5e5ff; } 
-        
-        .col-side { background: #fff; width: 80px; text-align: center; font-weight: bold; }
-        .text-right { text-align: right; }
-        .text-center { text-align: center; }
-        .indent { padding-left: 25px; }
-
-        .footer-wrap { display: flex; justify-content: space-between; align-items: flex-start; }
-        .bank-box { border: 1.5px solid #000; width: 360px; padding: 8px; font-size: 9pt; line-height: 1.6; }
-        .bank-title { font-weight: bold; text-decoration: underline; margin-bottom: 5px; display: block; }
-        
-        .sub-summary-table { width: 440px; border-collapse: collapse; margin-bottom: 10px; font-size: 10pt; }
-        .sub-summary-table td { border: 1px solid #000; padding: 4px 10px; }
-        .sub-summary-table .label-cell { width: 280px; }
-        
-        .final-billing-box { border: 4px solid #000; display: flex; align-items: center; width: 440px; height: 45px; margin-bottom: 10px; }
-        .final-label { background: #fff; font-size: 14pt; font-weight: bold; border-right: 2px solid #000; width: 140px; text-align: center; }
-        .final-value { font-size: 18pt; font-weight: bold; flex-grow: 1; text-align: right; padding-right: 15px; }
-
-        .deadline-box { border: 1.5px solid #000; border-radius: 20px; padding: 5px 30px; display: inline-block; float: right; font-size: 11pt; font-weight: bold; }
-
-        .receipt-area { border: 2px solid #000; padding: 30px; height: 100%; box-sizing: border-box; }
-        .r-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 40px; }
-        .r-title { font-size: 28pt; font-weight: bold; border: 1px solid #ccc; padding: 5px 40px; background: #eee; letter-spacing: 10px; }
-        .r-name { font-size: 18pt; font-weight: bold; border-bottom: 2px solid #000; min-width: 300px; }
-        .r-amount-wrap { text-align: center; margin: 50px 0; }
-        .r-amount { font-size: 32pt; font-weight: bold; border-bottom: 3px double #000; display: inline-block; padding: 0 50px; }
-        .r-office { position: absolute; bottom: 50px; right: 50px; text-align: left; font-size: 10pt; line-height: 1.5; }
+        body { background: #fff; }
+        #app { display: block; height: auto; padding: 0; }
+        #ui-panel, .pv-bar, #empty-msg { display: none !important; }
+        #preview-pane { display: block; background: #fff; border-radius: 0; overflow: visible; }
+        #pv-scroll { overflow: visible; padding: 0; }
+        #print-area { zoom: 1 !important; }
+        .page { box-shadow: none; margin: 0; }
+        .ed, .ed:hover, .ed:focus { background: none !important; box-shadow: none !important; }
     }
 </style>
 </head>
 <body>
 
-<div id="ui-panel">
-    <div class="nav-links">
-        <a href="定着法定代理PDF.html">← 定着法定代理PDF.html へ移動</a>
-        <span>■ 請求書発行システム（現在の画面）</span>
-    </div>
-    <h2>請求書・領収書 一括作成</h2>
-    
-    <div class="input-section">
-        <div class="input-group"><label>発行日</label><input type="date" id="issuedate" value="2026-04-15" onchange="save()"></div>
-        <div class="input-group"><label>サービス提供年月</label><input type="month" id="svc_month" value="2026-01" onchange="save()"></div>
-        <div class="input-group"><label>振込期限</label><input type="date" id="deadline" value="2026-04-30" onchange="save()"></div>
+<div id="app">
+    <div id="ui-panel">
+        <div class="nav-links">
+            <a href="定着法定代理PDF.html">← 定着法定代理PDF.html へ移動</a>
+            <span>■ 請求書発行システム（現在の画面）</span>
+        </div>
+        <h2>請求書・領収書 一括作成</h2>
+
+        <div class="input-section">
+            <div class="input-group"><label>発行日</label><input type="date" id="issuedate" value="2026-04-15" oninput="handleInput()"></div>
+            <div class="input-group"><label>サービス提供年月</label><input type="month" id="svc_month" value="2026-01" oninput="handleInput()"></div>
+            <div class="input-group"><label>振込期限</label><input type="date" id="deadline" value="2026-04-30" oninput="handleInput()"></div>
+        </div>
+
+        <div class="table-container">
+            <table class="entry-table" id="entry-table">
+                <thead>
+                    <tr>
+                        <th>No</th><th>受給者証番号</th><th>氏名</th><th>住所</th><th>受領額(②)</th><th>上限月額(①)</th><th>総費用額</th><th>自治体負担</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody"></tbody>
+            </table>
+        </div>
+
+        <div class="btn-area">
+            <button class="btn btn-add" onclick="addRow()">＋ 行を追加</button>
+            <button class="btn btn-clear" onclick="clearData()">全クリア</button>
+            <button class="btn btn-print" onclick="window.print()">🖨️ 印刷 (PDF出力)</button>
+            <button class="btn btn-clear" onclick="exportData()">💾 バックアップ保存</button>
+            <button class="btn btn-clear" onclick="document.getElementById('import-file').click()">📂 バックアップ読込</button>
+            <input type="file" id="import-file" accept=".json,application/json" style="display:none" onchange="importData(event)">
+        </div>
+        <div style="margin-top:10px;">
+            <span id="save-status" class="save-status">自動保存：待機中</span>
+        </div>
     </div>
 
-    <div class="table-container">
-        <table class="entry-table" id="entry-table">
-            <thead>
-                <tr>
-                    <th width="50">No</th><th width="120">受給者証番号</th><th>氏名</th><th>住所</th><th width="100">受領額(②)</th><th width="100">上限月額(①)</th><th width="100">総費用額</th><th width="100">自治体負担</th>
-                </tr>
-            </thead>
-            <tbody id="tbody"></tbody>
-        </table>
-    </div>
-
-    <div class="btn-area">
-        <button class="btn btn-add" onclick="addRow()">＋ 行を追加</button>
-        <button class="btn btn-clear" onclick="clearData()">全クリア</button>
-        <button class="btn btn-print" onclick="window.print()">🖨️ 印刷 (PDF出力)</button>
+    <div id="preview-pane">
+        <div class="pv-bar">
+            <strong>印刷プレビュー</strong>
+            <span class="hint">黄色い部分はクリックして直接編集できます（左の表にも反映）</span>
+            <label>表示倍率
+                <select id="zoom-sel" onchange="applyZoom()">
+                    <option value="auto">自動</option>
+                    <option value="0.5">50%</option>
+                    <option value="0.75">75%</option>
+                    <option value="1">100%</option>
+                </select>
+            </label>
+        </div>
+        <div id="pv-scroll">
+            <div id="empty-msg">左の表に氏名を入力すると、ここに請求書・領収書が表示されます</div>
+            <div id="print-area"></div>
+        </div>
     </div>
 </div>
 
-<div id="print-area"></div>
-
 <script>
-    window.onload = function() { load(); };
-
-    // テーブル内の入力イベント共通処理
-    function handleInput() {
-        updatePrint();
-        save();
+    const FIELD = { no: '.i-no', name: '.i-name', addr: '.i-address', burden: '.i-burden', limit: '.i-limit', total: '.i-total', gov: '.i-gov' };
+    const NUM = ['burden', 'limit', 'total', 'gov'];
+    const isNum = f => NUM.includes(f) || /^s\d[ud]$/.test(f);
+    // サービス内容（明細）の初期値。人ごとに手修正でき、自動保存される
+    const DEFAULT_SVC = [
+        { n: '就労定着支援', u: '2768', d: '1' },
+        { n: '就労定着処遇改善加算Ⅰ-ロ', u: '344', d: '1' },
+        { n: '就労定着職場適応研修終了加算', u: '120', d: '1' },
+        { n: '', u: '', d: '' }
+    ];
+    function normSvc(arr) {
+        return DEFAULT_SVC.map((def, i) => {
+            const a = Array.isArray(arr) && arr[i] ? arr[i] : (Array.isArray(arr) ? { n: '', u: '', d: '' } : def);
+            return { n: String(a.n == null ? '' : a.n), u: String(a.u == null ? '' : a.u), d: String(a.d == null ? '' : a.d) };
+        });
+    }
+    function getSvc(row) {
+        try { return normSvc(JSON.parse(row.dataset.svc)); } catch (e) { return normSvc(null); }
     }
 
-    function addRow(data = {}) {
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const fmt = v => (v === '' || v == null || isNaN(Number(v))) ? '' : Number(v).toLocaleString();
+
+    window.onload = function () {
+        load();
+        window.addEventListener('resize', applyZoom);
+        bindPreviewEvents();
+    };
+
+    function handleInput() { updatePrint(); save(); }
+
+    function addRow(data = {}, silent = false) {
         const tbody = document.getElementById('tbody');
         const count = tbody.rows.length + 1;
         const tr = document.createElement('tr');
+        tr.dataset.svc = JSON.stringify(normSvc(data.svc));
         tr.innerHTML = `
-            <td align="center">${count}</td>
-            <td><input type="text" class="i-no" value="${data.no || ''}" oninput="handleInput()"></td>
-            <td><input type="text" class="i-name" value="${data.name || ''}" oninput="handleInput()"></td>
-            <td><input type="text" class="i-address" value="${data.address || ''}" oninput="handleInput()"></td>
-            <td><input type="number" class="i-burden" value="${data.burden || ''}" oninput="handleInput()"></td>
-            <td><input type="number" class="i-limit" value="${data.limit || ''}" oninput="handleInput()"></td>
-            <td><input type="number" class="i-total" value="${data.total || ''}" oninput="handleInput()"></td>
-            <td><input type="number" class="i-gov" value="${data.gov || ''}" oninput="handleInput()"></td>
+            <td class="n">${count}</td>
+            <td><input type="text" class="i-no" value="${esc(data.no)}" oninput="handleInput()"></td>
+            <td><input type="text" class="i-name" value="${esc(data.name)}" oninput="handleInput()"></td>
+            <td><input type="text" class="i-address" value="${esc(data.address)}" oninput="handleInput()"></td>
+            <td><input type="number" class="i-burden" value="${esc(data.burden)}" oninput="handleInput()"></td>
+            <td><input type="number" class="i-limit" value="${esc(data.limit)}" oninput="handleInput()"></td>
+            <td><input type="number" class="i-total" value="${esc(data.total)}" oninput="handleInput()"></td>
+            <td><input type="number" class="i-gov" value="${esc(data.gov)}" oninput="handleInput()"></td>
         `;
+        // 左の行にフォーカス → 右のプレビューをその人のページへスクロール
+        tr.addEventListener('focusin', () => focusPreview(tr));
         tbody.appendChild(tr);
-        updatePrint();
-        save();
+        if (!silent) { updatePrint(); save(); }
+    }
+
+    function focusPreview(tr) {
+        const rows = [...document.querySelectorAll('#tbody tr')];
+        rows.forEach(r => r.classList.toggle('active', r === tr));
+        const idx = rows.indexOf(tr);
+        const page = document.querySelector(`#print-area .page[data-r="${idx}"]`);
+        if (page) page.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // 編集可能スパン
+    function ed(f, v, r) {
+        return `<span class="ed" contenteditable="true" spellcheck="false" data-f="${f}" data-r="${r}">${esc(isNum(f) ? fmt(v) : v)}</span>`;
+    }
+
+    // 給付費明細欄（4行＋合計）。単位数×日数＝サービス単位数、合計は自動計算
+    function svcRowsHtml(svc, r) {
+        let sum = 0;
+        const rows = svc.map((s, i) => {
+            const cls = i % 2 === 0 ? ' class="purple-row"' : '';
+            const side = i === 0 ? '<td rowspan="5" class="col-side">給付費<br>明細欄</td>' : '';
+            const line = (Number(s.u) || 0) * (Number(s.d) || 0);
+            sum += line;
+            return `<tr${cls}>${side}<td>${ed('s' + i + 'n', s.n, r)}</td><td class="text-center">${ed('s' + i + 'u', s.u, r)}</td><td class="text-center">${ed('s' + i + 'd', s.d, r)}</td><td class="text-right"><span class="calc" data-r="${r}" data-c="${i}">${s.u === '' ? '' : fmt(line)}</span></td></tr>`;
+        }).join('');
+        return rows + `<tr class="purple-row"><td>合計</td><td></td><td></td><td class="text-right"><span class="calc" data-r="${r}" data-c="sum">${fmt(sum)}</span></td></tr>`;
+    }
+
+    function recalc(r, svc) {
+        let sum = 0;
+        const area = document.getElementById('print-area');
+        svc.forEach((s, i) => {
+            const line = (Number(s.u) || 0) * (Number(s.d) || 0);
+            sum += line;
+            const el = area.querySelector(`.calc[data-r="${r}"][data-c="${i}"]`);
+            if (el) el.textContent = s.u === '' ? '' : fmt(line);
+        });
+        const t = area.querySelector(`.calc[data-r="${r}"][data-c="sum"]`);
+        if (t) t.textContent = fmt(sum);
     }
 
     function updatePrint() {
         const area = document.getElementById('print-area');
+        const scroller = document.getElementById('pv-scroll');
+        const keepScroll = scroller.scrollTop;
         area.innerHTML = '';
-        
+
         const issueDateVal = document.getElementById('issuedate').value;
         const svcMonthVal = document.getElementById('svc_month').value;
         const deadlineVal = document.getElementById('deadline').value;
-        
         if (!issueDateVal || !svcMonthVal || !deadlineVal) return;
 
-        const dateObj = new Date(issueDateVal);
-        const warekiYear = dateObj.getFullYear() - 2018;
-        
-        const svcDate = new Date(svcMonthVal);
-        const svcWareki = `令和${svcDate.getFullYear()-2018}年${svcDate.getMonth()+1}月`;
+        const [iy, im, id] = issueDateVal.split('-').map(Number);
+        const [sy, sm] = svcMonthVal.split('-').map(Number);
+        const [dy, dm, dd] = deadlineVal.split('-').map(Number);
+        const warekiYear = iy - 2018;
+        const svcWareki = `令和${sy - 2018}年${sm}月`;
+        const deadStr = `令和${dy - 2018}年${dm}月${dd}日`;
 
-        const deadObj = new Date(deadlineVal);
-        const deadStr = `令和${deadObj.getFullYear()-2018}年${deadObj.getMonth()+1}月${deadObj.getDate()}日`;
+        let pages = 0;
+        document.querySelectorAll('#tbody tr').forEach((row, r) => {
+            const g = k => row.querySelector(FIELD[k]).value;
+            const name = g('name');
+            if (!name) return;
+            pages++;
 
-        document.querySelectorAll('#tbody tr').forEach(r => {
-            const name = r.querySelector('.i-name').value;
-            if(!name) return;
-            
-            const no = r.querySelector('.i-no').value;
-            const addr = r.querySelector('.i-address').value;
-            const burden = r.querySelector('.i-burden').value ? Number(r.querySelector('.i-burden').value).toLocaleString() : "";
-            const limit = r.querySelector('.i-limit').value ? Number(r.querySelector('.i-limit').value).toLocaleString() : "";
-            const total = r.querySelector('.i-total').value ? Number(r.querySelector('.i-total').value).toLocaleString() : "";
-            const gov = r.querySelector('.i-gov').value ? Number(r.querySelector('.i-gov').value).toLocaleString() : "";
+            const no = g('no'), addr = g('addr'), burden = g('burden'), limit = g('limit'), total = g('total'), gov = g('gov');
+            const svc = getSvc(row);
 
             const page1 = document.createElement('div');
             page1.className = 'page';
+            page1.dataset.r = r;
             page1.innerHTML = `
                 <div class="title-wrap"><div class="double-line"></div><div class="title-box">請求書</div><div class="double-line"></div></div>
                 <div class="header-top">
-                    <div class="dest-info"><div class="dest-address">${addr}</div><div class="dest-name">${name}　　様</div></div>
+                    <div class="dest-info"><div class="dest-address">${ed('addr', addr, r)}</div><div class="dest-name">${ed('name', name, r)}　　様</div></div>
                     <div>
                         <div class="date-number-box">
-                            <div class="date-row"><span>日付</span><span>令和 ${warekiYear}年 ${dateObj.getMonth()+1}月 ${dateObj.getDate()}日</span></div>
-                            <div class="date-row"><span>番号</span><span>${no}</span></div>
+                            <div class="date-row"><span>日付</span><span>令和 ${warekiYear}年 ${im}月 ${id}日</span></div>
+                            <div class="date-row"><span>番号</span>${ed('no', no, r)}</div>
                         </div>
                         <div class="office-info">
                             <div class="office-name">ディーキャリアITエキスパート京橋オフィス</div>
@@ -207,22 +328,18 @@
                     </div>
                 </div>
                 <div class="intro-text">下記の通り ${svcWareki}ご利用分のご請求を申し上げます</div>
-                <div class="billing-box"><div class="billing-label">ご請求金額</div><div class="billing-value">¥${burden}</div></div>
-                <div class="limit-box"><div class="limit-label">利用者負担上限月額 ①</div><div class="limit-value">¥${limit}</div></div>
-                
+                <div class="billing-box"><div class="billing-label">ご請求金額</div><div class="billing-value">¥${ed('burden', burden, r)}</div></div>
+                <div class="limit-box"><div class="limit-label">利用者負担上限月額 ①</div><div class="limit-value">¥${ed('limit', limit, r)}</div></div>
+
                 <table class="main-table">
                     <tr><th colspan="2">サービス内容</th><th>単位数</th><th>日数</th><th>サービス単位数</th></tr>
-                    <tr class="purple-row"><td rowspan="5" class="col-side">給付費<br>明細欄</td><td>就労定着支援</td><td class="text-center">2768</td><td class="text-center">1</td><td class="text-right">2,768</td></tr>
-                    <tr><td>就労定着処遇改善加算Ⅰ</td><td class="text-center">297</td><td class="text-center">1</td><td class="text-right">297</td></tr>
-                    <tr class="purple-row"><td>就労定着職場適応研修終了加算</td><td class="text-center">120</td><td class="text-center">1</td><td class="text-right">120</td></tr>
-                    <tr><td></td><td></td><td></td><td></td></tr>
-                    <tr class="purple-row"><td>合計</td><td></td><td></td><td class="text-right">3,185</td></tr>
+                    ${svcRowsHtml(svc, r)}
                     <tr><td rowspan="5" class="col-side">請求額<br>集計欄</td><td>単位数単価</td><td></td><td></td><td class="text-right">¥10.96</td></tr>
-                    <tr class="purple-row"><td class="indent">総費用額</td><td></td><td></td><td class="text-right">¥${total}</td></tr>
-                    <tr><td class="indent">∟１割相当額(利用者負担額 ②)</td><td></td><td></td><td class="text-right">¥${burden}</td></tr>
-                    <tr class="purple-row"><td>上限月額調整(①②の内少ない数)</td><td></td><td></td><td class="text-right">¥${burden}</td></tr>
-                    <tr><td>決定利用者負担</td><td></td><td></td><td class="text-right">¥${burden}</td></tr>
-                    <tr class="purple-row"><td></td><td>給付費地方自治体負担分</td><td></td><td></td><td class="text-right">¥${gov}</td></tr>
+                    <tr class="purple-row"><td class="indent">総費用額</td><td></td><td></td><td class="text-right">¥${ed('total', total, r)}</td></tr>
+                    <tr><td class="indent">∟１割相当額(利用者負担額 ②)</td><td></td><td></td><td class="text-right">¥${ed('burden', burden, r)}</td></tr>
+                    <tr class="purple-row"><td>上限月額調整(①②の内少ない数)</td><td></td><td></td><td class="text-right">¥${ed('burden', burden, r)}</td></tr>
+                    <tr><td>決定利用者負担</td><td></td><td></td><td class="text-right">¥${ed('burden', burden, r)}</td></tr>
+                    <tr class="purple-row"><td></td><td>給付費地方自治体負担分</td><td></td><td></td><td class="text-right">¥${ed('gov', gov, r)}</td></tr>
                     <tr><td class="col-side">その他<br>費用一覧</td><td>小計</td><td></td><td></td><td class="text-right">¥0</td></tr>
                 </table>
 
@@ -235,10 +352,10 @@
                     </div>
                     <div>
                         <table class="sub-summary-table">
-                            <tr><td class="label-cell">決定利用者負担額</td><td class="text-right">¥${burden}</td></tr>
+                            <tr><td class="label-cell">決定利用者負担額</td><td class="text-right">¥${ed('burden', burden, r)}</td></tr>
                             <tr><td class="label-cell">その他費用</td><td class="text-right">¥0</td></tr>
                         </table>
-                        <div class="final-billing-box"><div class="final-label">請求額</div><div class="final-value">¥${burden}</div></div>
+                        <div class="final-billing-box"><div class="final-label">請求額</div><div class="final-value">¥${ed('burden', burden, r)}</div></div>
                         <div class="deadline-box">${deadStr} までにお振込みお願い致します。</div>
                     </div>
                 </div>
@@ -247,12 +364,13 @@
 
             const page2 = document.createElement('div');
             page2.className = 'page';
+            page2.dataset.r = r;
             page2.innerHTML = `
                 <div class="receipt-area">
-                    <div class="r-header"><div class="r-name">${name}　　様</div><div class="r-title">領収書</div></div>
+                    <div class="r-header"><div class="r-name">${ed('name', name, r)}　　様</div><div class="r-title">領収書</div></div>
                     <div class="intro-text" style="font-size:14pt; margin-top:30px;">上記金額を正に受領致しました。</div>
                     <div class="text-center" style="font-size:12pt; margin-bottom:10px;">${svcWareki}分</div>
-                    <div class="r-amount-wrap"><div class="r-amount">領収金額 ¥${burden}-</div></div>
+                    <div class="r-amount-wrap"><div class="r-amount">領収金額 ¥${ed('burden', burden, r)}-</div></div>
                     <div class="r-office">
                         令和　　年　　月　　日<br><br>
                         事業者　株式会社ジョイナス<br>〒603-8408 京都市北区大宮北椿原町45 高山ビル2階<br>代表取締役 高山 愛子<br><br>
@@ -264,9 +382,77 @@
             `;
             area.appendChild(page2);
         });
+
+        document.getElementById('empty-msg').style.display = pages ? 'none' : 'block';
+        applyZoom();
+        scroller.scrollTop = keepScroll;
     }
 
-    function save() {
+    // プレビュー上での編集 → 左の表・明細データへ反映して自動保存
+    function bindPreviewEvents() {
+        const area = document.getElementById('print-area');
+
+        area.addEventListener('input', e => {
+            const el = e.target.closest('.ed');
+            if (!el) return;
+            const r = Number(el.dataset.r), f = el.dataset.f;
+            const numeric = isNum(f);
+            let v = el.textContent.replace(/\n/g, '');
+            if (numeric) v = v.replace(/[^\d]/g, '');
+
+            const row = document.querySelectorAll('#tbody tr')[r];
+            const m = /^s(\d)([nud])$/.exec(f);
+            if (row && m) {
+                const svc = getSvc(row);
+                svc[Number(m[1])][m[2]] = v;
+                row.dataset.svc = JSON.stringify(svc);
+                recalc(r, svc);
+            } else if (row) {
+                row.querySelector(FIELD[f]).value = v;
+                area.querySelectorAll(`.ed[data-r="${r}"][data-f="${f}"]`).forEach(o => {
+                    if (o !== el) o.textContent = numeric ? fmt(v) : v;
+                });
+            }
+            save();
+        });
+
+        // 数字はカンマ付きに整形（フォーカスが外れた時）
+        area.addEventListener('focusout', e => {
+            const el = e.target.closest('.ed');
+            if (el && isNum(el.dataset.f)) {
+                el.textContent = fmt(el.textContent.replace(/[^\d]/g, ''));
+            }
+        });
+
+        area.addEventListener('keydown', e => {
+            if (e.target.closest('.ed') && e.key === 'Enter') { e.preventDefault(); e.target.blur(); }
+        });
+
+        area.addEventListener('paste', e => {
+            if (!e.target.closest('.ed')) return;
+            e.preventDefault();
+            const t = (e.clipboardData || window.clipboardData).getData('text').replace(/\n/g, '');
+            document.execCommand('insertText', false, t);
+        });
+
+        window.addEventListener('beforeunload', save);
+        document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+    }
+
+    function applyZoom() {
+        const sel = document.getElementById('zoom-sel').value;
+        const area = document.getElementById('print-area');
+        let z;
+        if (sel === 'auto') {
+            const w = document.getElementById('pv-scroll').clientWidth - 32;
+            z = Math.max(0.3, Math.min(1, w / 794));
+        } else {
+            z = Number(sel);
+        }
+        area.style.zoom = z;
+    }
+
+    function collectData() {
         const data = [];
         document.querySelectorAll('#tbody tr').forEach(r => {
             data.push({
@@ -276,35 +462,93 @@
                 burden: r.querySelector('.i-burden').value,
                 limit: r.querySelector('.i-limit').value,
                 total: r.querySelector('.i-total').value,
-                gov: r.querySelector('.i-gov').value
+                gov: r.querySelector('.i-gov').value,
+                svc: getSvc(r)
             });
         });
-        localStorage.setItem('inv_data', JSON.stringify(data));
-        localStorage.setItem('inv_dates', JSON.stringify({
-            issue: document.getElementById('issuedate').value,
-            month: document.getElementById('svc_month').value,
-            dead: document.getElementById('deadline').value
-        }));
+        return {
+            data,
+            dates: {
+                issue: document.getElementById('issuedate').value,
+                month: document.getElementById('svc_month').value,
+                dead: document.getElementById('deadline').value
+            }
+        };
+    }
+
+    function setStatus(ok) {
+        const el = document.getElementById('save-status');
+        if (!el) return;
+        el.className = 'save-status' + (ok ? '' : ' ng');
+        el.textContent = ok
+            ? '✔ 自動保存済み ' + new Date().toLocaleTimeString('ja-JP')
+            : '⚠ このブラウザでは自動保存できません。「バックアップ保存」を使ってください';
+    }
+
+    // 入力・編集のたびに自動保存（ブラウザ内に保存）
+    function save() {
+        try {
+            const { data, dates } = collectData();
+            localStorage.setItem('inv_data', JSON.stringify(data));
+            localStorage.setItem('inv_dates', JSON.stringify(dates));
+            setStatus(true);
+        } catch (e) { setStatus(false); }
+    }
+
+    function applyData(obj) {
+        const dates = obj.dates || {};
+        if (dates.issue) document.getElementById('issuedate').value = dates.issue;
+        if (dates.month) document.getElementById('svc_month').value = dates.month;
+        if (dates.dead) document.getElementById('deadline').value = dates.dead;
+
+        const tbody = document.getElementById('tbody');
+        tbody.innerHTML = '';
+        (obj.data || []).forEach(d => addRow(d, true));
+        while (tbody.rows.length < 15) addRow({}, true);
+        updatePrint();
     }
 
     function load() {
-        const dates = JSON.parse(localStorage.getItem('inv_dates') || '{}');
-        if(dates.issue) document.getElementById('issuedate').value = dates.issue;
-        if(dates.month) document.getElementById('svc_month').value = dates.month;
-        if(dates.dead) document.getElementById('deadline').value = dates.dead;
-
-        const data = JSON.parse(localStorage.getItem('inv_data') || '[]');
-        const tbody = document.getElementById('tbody');
-        tbody.innerHTML = '';
-        data.forEach(d => addRow(d));
-        while(tbody.rows.length < 15) { addRow(); }
+        let obj = { data: [], dates: {} };
+        try {
+            obj.data = JSON.parse(localStorage.getItem('inv_data') || '[]');
+            obj.dates = JSON.parse(localStorage.getItem('inv_dates') || '{}');
+        } catch (e) { setStatus(false); }
+        applyData(obj);
     }
 
     function clearData() {
-        if(confirm('入力を削除しますか？')) {
-            localStorage.removeItem('inv_data');
-            load();
+        if (confirm('入力を削除しますか？')) {
+            const dates = collectData().dates;
+            applyData({ data: [], dates });
+            save();
         }
+    }
+
+    function exportData() {
+        const blob = new Blob([JSON.stringify(collectData(), null, 1)], { type: 'application/json' });
+        const a = document.createElement('a');
+        const t = new Date();
+        a.href = URL.createObjectURL(blob);
+        a.download = `invoice_backup_${t.getFullYear()}${String(t.getMonth() + 1).padStart(2, '0')}${String(t.getDate()).padStart(2, '0')}.json`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+    }
+
+    function importData(ev) {
+        const f = ev.target.files[0];
+        if (!f) return;
+        const rd = new FileReader();
+        rd.onload = () => {
+            try {
+                const obj = JSON.parse(rd.result);
+                if (!Array.isArray(obj.data)) throw new Error('bad');
+                applyData(obj);
+                save();
+            } catch (e) { alert('読み込めへんファイルやった。バックアップ保存したJSONを選んでな。'); }
+            ev.target.value = '';
+        };
+        rd.readAsText(f);
     }
 </script>
 </body>
